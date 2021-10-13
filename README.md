@@ -15,7 +15,7 @@ In this case you need to run a cell for each database seperatly and therefore ca
 ## Scholar:
 This notebook can be used for a first scrape of google scholar to get an overview of the topic. 
 
-How-To:
+## How-To:
 
     - Install and import all necessary packages (git command lines at the bottom of the page available)
     - Start your desired notebook
