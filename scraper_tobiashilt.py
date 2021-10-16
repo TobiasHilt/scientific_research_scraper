@@ -277,7 +277,8 @@ def scrape_wos (query_wos, PATH, count):
         # Falls Werbung aufpoppt, closen
         try:
             driver.find_element_by_id('pendo-close-guide-8fdced48').click()
-
+        except:
+            print("-")
 
         #Searchbar finden und ausfüllen
 
@@ -309,7 +310,7 @@ def scrape_wos (query_wos, PATH, count):
         Anzahl = driver.find_element_by_class_name('brand-blue').text    
         print("Web of Science - Anzahl Suchergebnisse:", Anzahl)
         x = locale.atof(Anzahl)
-        
+        x = int(x)
        
           
         records = []  # Liste für Ergebnisse initialisieren
@@ -920,6 +921,7 @@ def api_scrape(query, scopus_key, sd_key, count):
     result['Title'] = result['Title'].str.lower()
     result.drop_duplicates(subset ='Title', keep = 'first', inplace = True)
     after = len(result)
+    print('Anzahl Suchergebnisse: ', after)
     print('Es wurden', pre-after, 'Duplikate entfernt! (Basierend auf DOI oder Titel)')
     result.reset_index(inplace = True, drop = True)
     result.index += 1
@@ -979,6 +981,7 @@ def complete_scrape(query, scopus_key, sd_key, PATH, count):
     result['Title'] = result['Title'].str.lower()
     result.drop_duplicates(subset ='Title', keep = 'first', inplace = True)
     after = len(result)
+    print('Anzahl Suchergebnisse: ', after)
     print('Es wurden', pre-after, 'Duplikate entfernt! (Basierend auf DOI oder Titel)')
     result.reset_index(inplace = True, drop = True)
     result.index += 1
