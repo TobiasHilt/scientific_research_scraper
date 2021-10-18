@@ -5,7 +5,6 @@
 If you use this software please cite as followed:
 
 @software{Hilt_Scientific_research_scraper_2021,
-
 author = {Hilt, Tobias},
 doi = {10.5281/zenodo.5574867},
 month = {10},
