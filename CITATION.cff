@@ -1,0 +1,11 @@
+cff-version: 1.0.1
+ message: "If you use this software, please cite it as below."
+ authors:
+ - family-names: "Hilt"
+   given-names: "Tobias"
+   orcid: "https://orcid.org/0000-0001-9267-5109"
+ title: "Scientific research scraper"
+ version: 1.0.1
+ doi: 10.5281/zenodo.5574867
+ date-released: 2021-10-18
+ url: "https://github.com/TobiasHilt/scientific_research_scraper"
