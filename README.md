@@ -1,8 +1,22 @@
 # Read first
 
-There are 4 notebook available: 'Quick.ipynb', 'Complete.ipynb', 'Detailed.ipynb' and 'scholar.ipynb'.
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5574867.svg)](https://doi.org/10.5281/zenodo.5574867)
+
+If you use this software please cite as followed:
+
+@software{Hilt_Scientific_research_scraper_2021,
+author = {Hilt, Tobias},
+doi = {10.5281/zenodo.5574867},
+month = {10},
+title = {{Scientific research scraper}},
+url = {https://github.com/TobiasHilt/scientific_research_scraper},
+version = {1.0.1},
+year = {2021}
+}
+
 
 ## Notebooks:
+There are 4 notebook available: 'Quick.ipynb', 'Complete.ipynb', 'Detailed.ipynb' and 'scholar.ipynb'.
 ### Quick:
 As the names allready indicate the first notebook is much quicker because it only searches those databases which are call-able via an api-call (Arxiv, Scopus, Science Direct).The search-query is the same for all databases, if there are no search-results for one (or more) of the databases an error message is printed and the database will be ignored. The results for the databases are joined and can be downloaded as an excel file (date_quick.xlsx)
 
