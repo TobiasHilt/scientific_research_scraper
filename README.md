@@ -5,6 +5,7 @@
 If you use this software please cite as followed:
 
 @software{Hilt_Scientific_research_scraper_2021,
+
 author = {Hilt, Tobias},
 doi = {10.5281/zenodo.5574867},
 month = {10},
@@ -32,7 +33,7 @@ This notebook can be used for a first scrape of google scholar to get an overvie
 
 ## How-To:
 
-    - Install and import all necessary packages (git command lines at the bottom of the page available)
+    - Install and import all necessary packages (git command lines below)
     - Start your desired notebook
     - Edit the Search-String matching your needs ('query'-variable)
     - Edit the desired location to save the documents ('Location'-variable)
