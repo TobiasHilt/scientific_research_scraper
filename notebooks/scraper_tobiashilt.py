@@ -12,46 +12,55 @@ import random
 import re
 import numpy as np
 import locale
-
+from webdriver_manager.chrome import ChromeDriverManager
 
 ################################################## Arxiv ###################################################### 
 
 
 def scrape_arxiv(arxiv_query,count): 
-	search = arxiv.Search(
+    records_arxiv = []
+    if count == "max":
+        search = arxiv.Search(
+                arxiv_query,
+                sort_by = arxiv.SortCriterion.SubmittedDate,
+                sort_order = arxiv.SortOrder.Descending
+                )
+
+        
+    else:
+        search = arxiv.Search(
                 arxiv_query,
                 max_results = count,
                 sort_by = arxiv.SortCriterion.SubmittedDate,
                 sort_order = arxiv.SortOrder.Descending
                 )
 
-	records_arxix = []
+    
+    
  
-	for result in search.results():
-	   # print(result.authors)
-  	  #print('Title: ', result.title, '\nDate: ',result.published , '\nAuthor: ', result.authors, '\nId: ', result.entry_id, '\nSummary: ',
-   	     #result.summary ,'\nURL: ', result.pdf_url, '\n\n')
-          records_arxix.append({  #Liste mit Ergebnissen erweitern
-                    
-                    "Title" : result.title,
-                    "Author" : result.authors,
-                    "Date" : result.published,
-                    "Publisher": '-',
-                    "Abstract" : result.summary,
-                    "Link" : result.pdf_url,
-                   
-                    })
+    for result in search.results():
+        
+          records_arxiv.append({  #Liste mit Ergebnissen erweitern
+                "Title" : result.title,
+                "Author" : result.authors,
+                "Date" : result.published,
+                "Publisher": '-',
+                "Abstract" : result.summary,
+                "Link" : result.pdf_url,
+
+                })
 
     
 
-	df_ARXIV = pd.DataFrame(records_arxix)
-	df_ARXIV.insert(0, 'DOI', '')
-	df_ARXIV['DOI'] = np.nan
-	df_ARXIV['Date']= df_ARXIV['Date'].dt.date
-	df_ARXIV.index+=1
+    df_ARXIV = pd.DataFrame(records_arxiv)
+    df_ARXIV.insert(0, 'DOI', '')
+    df_ARXIV['Date'] = df_ARXIV['Date'].dt.tz_localize(None)
+    df_ARXIV['DOI'] = np.nan
+    df_ARXIV['Date']= df_ARXIV['Date'].dt.date
+    df_ARXIV.index+=1
     
         
-	return df_ARXIV
+    return df_ARXIV
 
 
 
@@ -124,12 +133,17 @@ def json_to_pd_scopus (entry):
         
     
     try:
+        Citedby = entry['citedby-count']
+    except:
+        Citedby = None
+        
+    try:
         Abstract = entry['dc:description']
     except:
         Abstract = None
                        
     
-    return pd.Series({'DOI': DOI, 'Title': Titel, 'Author': Author, 'Date': Date, 'Publisher': Publisher, 'Abstract': Abstract, 'Link': Link})
+    return pd.Series({'DOI': DOI, 'Title': Titel, 'Author': Author, 'Date': Date, 'Publisher': Publisher,'Cited_by': Citedby, 'Abstract': Abstract, 'Link': Link})
 
 # Aufrufbare Funktion
 def scrape_scopus(  key, query, count, view='COMPLETE'):
@@ -263,17 +277,21 @@ def scrape_sd( key, query, count, view='STANDARD'):
 
 
 
-def scrape_wos (query_wos, PATH, count):
+def scrape_wos (query_wos, count):
         locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
         
        
 
-        driver = webdriver.Chrome(PATH)
-
+        driver = webdriver.Chrome(ChromeDriverManager().install())
+        
         # URL aufrufen
         driver.get('https://www.webofscience.com/wos/woscc/basic-search')
         time.sleep(5)
-
+        #cookies reject
+        try:
+            driver.find_element_by_id('onetrust-reject-all-handler').click()
+        except:
+            print("-")
         # Falls Werbung aufpoppt, closen
         try:
             driver.find_element_by_id('pendo-close-guide-8fdced48').click()
@@ -353,48 +371,65 @@ def scrape_wos (query_wos, PATH, count):
 
             
 
-            for item in soup.select('[docid]'): 
-                    try: 
-                        #print('--------------START--------------------') 
-                        #print(item) 
-                        
+            for item in soup.select('app-record'): 
+                    try:
                         #Titel
                         #print(item.select('app-summary-title')[0].get_text()) 
                         Titel = item.select('app-summary-title')[0].get_text()
-                        
+                    except:
+                        Titel = None
+
+                    try:
                         #Date
-                        date_help = item.select('div')[2].get_text()
+                        #date_help = item.select('summary-record-pubdate')#.get_text()
+                        date_help = item.find("span", {"name": "pubdate"}).get_text()
                         date = date_help.split('|', 1)[0]
-                        #print(date)
-                        
-                        #Link
-                        #print(item.select('a')[-1]['href'])
-                        Link = item.select('a')[-1]['href']
-                        
-                        #Author
-                        #print(item.select('app-summary-authors')[0].get_text())
+                    except:
+                        date = None
+
+                    try:
+                        Link = item.select('a')[0]['href']
+                        Link = "https://www.webofscience.com"+Link
+                    except:
+                        Link = None
+
+                    try:
                         Author = item.select('app-summary-authors')[0].get_text()
-                        
+                    except:
+                        Author = None
+
+                    try:
                         #Abstract
-                        #print(item.select('p'))
-                        Abstract = item.select('p')
-                        
+                       # print(item.select('p')[0].get_text())
+                        Abstract = item.select('p')[0].get_text()
+                    except:
+                        Abstract = None
                         #Journal/Publisher
-                        #print(item.select('app-jcr-overlay')[0].get_text())
+
+                    try:
+                     #   print(item.select('app-jcr-overlay')[0].get_text())
                         Publisher = item.select('app-jcr-overlay')[0].get_text()
+                    except:
+                        Publisher = None
 
-                        #print("---------------ENDE--------------------") 
+                    try:
+                        #Zitieranzahl
+                        cit = item.select('div')[10].get_text()
+                        substring = "Citations"
+                        if substring in cit:
+                            cit = cit.split(" Citations")[0]
+                        else:
+                            cit = None
 
-                    except Exception as e: 
-                        #raise e
-                        print('---')
-
+                    except:
+                        cit = None
 
                     records.append({  #Liste mit Ergebnissen erweitern
                                    #"DOI" : '',
                                     "Title" : Titel,
                                     "Author" : Author,
                                     "Date" : date,
+                                    "Cited_by": cit,
                                     "Publisher" : Publisher,
                                     "Abstract" : Abstract,
                                     "Link" : Link
@@ -430,12 +465,12 @@ def scrape_wos (query_wos, PATH, count):
     
     
     
-def scrape_acm (query_acm, PATH, count):
+def scrape_acm (query_acm,  count):
         locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
         
        
 
-        driver = webdriver.Chrome(PATH)
+        driver = webdriver.Chrome(ChromeDriverManager().install())
 
         # URL aufrufen
         driver.get('https://dl.acm.org/')
@@ -507,21 +542,31 @@ def scrape_acm (query_acm, PATH, count):
                     DOI_help = item.select('a')[0]['href']
                     DOI = DOI_help.split("/doi/")[1]
                     #print(DOI)
-
+                except:
+                    DOI = None
+                    
+                try:
                     #Title
-                    Title = item.select('h5')[0].get_text()
-                    #print(Title) 
-
-                    #Authors
+                    Title = item.select('h5')[0].get_text()                  
+                except:
+                    Title = None
+                    
+                try:
                     Author = item.select('ul')[0].get_text()
                     Author = Author.replace("\n", " ")
+                except:
+                    Author = Nonee
                     #print(Author)
-
+                    
+                try:
                     #Date
                     Date = item.select('span[class="dot-separator"]')[0].get_text()
                     Date = Date.split(",")[0]
+                except:
+                    Date = None
                     #print(Date)
-
+                
+                try:
                     #Publisher
                     Publisher = item.select('span[class="epub-section__title"]')[0].get_text()
                     try: 
@@ -529,27 +574,32 @@ def scrape_acm (query_acm, PATH, count):
                     except:
                         Publisher = Publisher
                     #print(Publisher)
+                except:
+                    Publisher = None
 
-                    #Abstract
+                try:
                     Abstract = item.select('p')[0].get_text()
                     #print(Abstract)
-
+                except:
+                    Abstract = None
+                
+                try:
                     #Link
                     Link = "https://dl.acm.org" + DOI_help
                     #print(Link)
+                except:
+                    Link = None
 
-                    #print("---------------------")
-                    #print(item)
-
-                except Exception as e: 
-                    #raise e
-                    print('---')
-
+                try:
+                    cit= item.find("span", {"class": "citation"}).get_text()
+                except:
+                    cit = None
 
                 records.append({  #Liste mit Ergebnissen erweitern
                                 "DOI" : DOI,
                                 "Title" : Title,
                                 "Author" : Author,
+                                "Cited_by" : cit,
                                 "Date" : Date,
                                 "Publisher" : Publisher,
                                 "Abstract" : Abstract,
@@ -574,6 +624,8 @@ def scrape_acm (query_acm, PATH, count):
         
         return df_ACM
 
+
+
     
     
 ################################################## IEEE ###################################################### 
@@ -582,12 +634,12 @@ def scrape_acm (query_acm, PATH, count):
     
     
     
-def scrape_ieee (query_ieee, PATH, count):
+def scrape_ieee (query_ieee, count):
         locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
         
        
 
-        driver = webdriver.Chrome(PATH)
+        driver = webdriver.Chrome(ChromeDriverManager().install())
 
         # URL aufrufen
         driver.get('https://ieeexplore.ieee.org/')
@@ -662,48 +714,72 @@ def scrape_ieee (query_ieee, PATH, count):
             for item in soup.select('div[class="List-results-items"]'):
                 try: 
                         
-                        #Title
-                        Title = item.select('h2')[0].get_text()
+                    #Title
+                    Title = item.select('h2')[0].get_text()
                         #print(Title) 
+                except:
+                    Title = None
+                
+                try:
+                    Author = item.select('p')[0].get_text()
+                except:
+                    Author = None
+                
+                try:
+                    Date = item.select('div[class="publisher-info-container"]')[0].get_text()
+                    Date = Date.split("|")[0]
+                    Date = Date.split(": ")[1]
+                    #print(Date)
+                except:
+                    Date =None
+                
+                try:
+                    Publisher = item.select('div[class="description"]')[0].get_text()
+                    Publisher = Publisher.split("|")[0]
+                    Publisher = Publisher.split("Year :")[0]
+                    
+                except:
+                    Publisher = None
+                    #print(Publisher)
+                try:
+                    #Abstract
+                    Abstract = item.select('div[class="row doc-access-tools-container"]')[0].get_text()
+                    Abstract = Abstract.split("Abstract")[1]
+                    Abstract = Abstract.split("Show More")[0]
+                    
+                except:
+                    Abstract = None
+                
+                    #print(Abstract)
+                try:
+                    #Link
+                    Link_help = item.select('a')[0]['href']#.get_text()
+                    Link = "https://ieeexplore.ieee.org" + Link_help
+                except:
+                    Link = None
+                    
+                try:
+                    cit = item.select('a:contains("Papers")')[0].get_text()
+                    substring = "Papers"
+                    if substring in cit:
+                        cit = cit.replace("Papers (","")
+                        cit = cit.replace(")","")
+                    else:
+                        cit = cit
+                except:
+                    cit = None
 
-                        #Authors
-                        Author = item.select('p')[0].get_text()
-                        #print(Author)
 
-                        #Date
-                        Date = item.select('div[class="publisher-info-container"]')[0].get_text()
-                        Date = Date.split("|")[0]
-                        Date = Date.split(": ")[1]
-                        #print(Date)
+                    #print(Link)
 
-                        #Publisher
-                        Publisher = item.select('div[class="description"]')[0].get_text()
-                        Publisher = Publisher.split("|")[0]
-                        Publisher = Publisher.split("Year :")[0]
-                        #print(Publisher)
-
-                        #Abstract
-                        Abstract = item.select('div[class="row doc-access-tools-container"]')[0].get_text()
-                        Abstract = Abstract.split("Abstract")[1]
-                        Abstract = Abstract.split("Show More")[0]
-                        #print(Abstract)
-
-                        #Link
-                        Link_help = item.select('a')[0]['href']#.get_text()
-                        Link = "https://ieeexplore.ieee.org" + Link_help
-                        #print(Link)
-
-                        #print("---------------------")
-                        #print(item)
-
-                except Exception as e: 
-                        #raise e
-                        print('---')
+                    #print("---------------------")
+                    #print(item)
 
                 records.append({  #Liste mit Ergebnissen erweitern
                                 #"DOI" : '',
                                 "Title" : Title,
                                 "Author" : Author,
+                                "Cited_by": cit,
                                 "Date" : Date,
                                 "Publisher" : Publisher,
                                 "Abstract" : Abstract,
@@ -740,13 +816,13 @@ def scrape_ieee (query_ieee, PATH, count):
 
 
 
-def scrape_scholar(query_scholar, PATH, Start, count):
+def scrape_scholar(query_scholar, Start, count):
         #Start Datum der Suche
 
         start_date = Start
         
 
-        driver = webdriver.Chrome(PATH)
+        driver = webdriver.Chrome(ChromeDriverManager().install())
 
         # URL aufrufen
         driver.get('https://scholar.google.de/')
@@ -925,6 +1001,7 @@ def api_scrape(query, scopus_key, sd_key, count):
     print('Es wurden', pre-after, 'Duplikate entfernt! (Basierend auf DOI oder Titel)')
     result.reset_index(inplace = True, drop = True)
     result.index += 1
+    result['Cited_by'] = pd.to_numeric(result['Cited_by'])
     
     return result
 
@@ -933,7 +1010,7 @@ def api_scrape(query, scopus_key, sd_key, count):
 
 ################################################## complete-Scrape ###################################################### 
 
-def complete_scrape(query, scopus_key, sd_key, PATH, count):
+def complete_scrape(query, scopus_key, sd_key, count):
     #count = 5000
     try:
         df_Scopus = scrape_scopus(scopus_key, query, count)
@@ -954,19 +1031,19 @@ def complete_scrape(query, scopus_key, sd_key, PATH, count):
         df_Arxiv = pd.DataFrame()
     
     try:
-        df_wos = scrape_wos(query, PATH, count)
+        df_wos = scrape_wos(query, count)
     except:
         print('Keine Suchergebnisse bei Web of Science!')
         df_wos = pd.DataFrame()
     
     try:
-        df_acm = scrape_acm(query, PATH, count)
+        df_acm = scrape_acm(query, count)
     except:
         print('Keine Suchergebnisse bei ACM digital!')
         df_acm = pd.DataFrame()
     
     try:
-        df_ieee = scrape_ieee(query, PATH, count)
+        df_ieee = scrape_ieee(query, count)
     except:
         print('Keine Suchergebnisse bei IEEE!')
         df_ieee = pd.DataFrame()
@@ -984,6 +1061,7 @@ def complete_scrape(query, scopus_key, sd_key, PATH, count):
     print('Anzahl Suchergebnisse: ', after)
     print('Es wurden', pre-after, 'Duplikate entfernt! (Basierend auf DOI oder Titel)')
     result.reset_index(inplace = True, drop = True)
+    result['Cited_by'] = pd.to_numeric(result['Cited_by'])
     result.index += 1
     
     return result
@@ -992,3 +1070,4 @@ def complete_scrape(query, scopus_key, sd_key, PATH, count):
 
         
                 
+
