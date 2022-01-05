@@ -37,7 +37,6 @@ This notebook can be used for a first scrape of google scholar to get an overvie
     - Edit the Search-String matching your needs ('query'-variable)
     - Edit the desired location to save the documents ('Location'-variable)
     - Edit the api-Keys with your personal key from: https://dev.elsevier.com
-    - [For notebooks using webdriver: change PATH-varible to the path, where chromedriver is installed locally on your device]
     - Start institutional VPN
     - Run the desired cells 
     - Download the results
