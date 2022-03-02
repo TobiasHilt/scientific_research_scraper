@@ -8,11 +8,13 @@ import time
 from bs4 import BeautifulSoup
 import pandas as pd
 import requests
+from requests.structures import CaseInsensitiveDict
 import random
 import re
 import numpy as np
 import locale
 from webdriver_manager.chrome import ChromeDriverManager
+import json
 
 ################################################## Arxiv ###################################################### 
 
@@ -54,7 +56,11 @@ def scrape_arxiv(arxiv_query,count):
 
     df_ARXIV = pd.DataFrame(records_arxiv)
     df_ARXIV.insert(0, 'DOI', '')
+    df_ARXIV['Database'] = "Arxiv"
     df_ARXIV['Date'] = df_ARXIV['Date'].dt.tz_localize(None)
+    #except:
+     #   df_ARXIV['Date'] =  df_ARXIV['Date']
+        
     df_ARXIV['DOI'] = np.nan
     df_ARXIV['Date']= df_ARXIV['Date'].dt.date
     df_ARXIV.index+=1
@@ -143,7 +149,7 @@ def json_to_pd_scopus (entry):
         Abstract = None
                        
     
-    return pd.Series({'DOI': DOI, 'Title': Titel, 'Author': Author, 'Date': Date, 'Publisher': Publisher,'Cited_by': Citedby, 'Abstract': Abstract, 'Link': Link})
+    return pd.Series({'DOI': DOI, 'Title': Titel, 'Author': Author, 'Date': Date, 'Publisher': Publisher,'Cited_by': Citedby, 'Abstract': Abstract, 'Link': Link, 'Database': "Scopus"})
 
 # Aufrufbare Funktion
 def scrape_scopus(  key, query, count, view='COMPLETE'):
@@ -175,22 +181,38 @@ def scrape_scopus(  key, query, count, view='COMPLETE'):
 
 ################################################## Science Direct ###################################################### 
 
-        
 
 # Api aufrufen und parsen --> für jede Seite der Suchergebnisse wird das gemacht
-def _search_sd(key, query, view, index=0):
-    par = {'apikey': key, 'query': query, 'start': index,
-           'httpAccept': 'application/json', 'view': view}
+def _search_sd(key, insttoken, query,  index=0):
     
-    Url = "https://api.elsevier.com/content/search/sciencedirect"
-    r = requests.get(Url, params=par)
+    
+    headers = {}
+    headers = CaseInsensitiveDict()
+    headers["X-ELS-APIKey"] = key #"8b45b88887de27f0f63d9ad72d06fba9"
+    headers["X-ELS-Insttoken"] = insttoken #"fc8667ab791d1fa42063ac02d0408609"
+    headers["Content-Type"] = "application/json"
+    headers['Accept'] ="application/json"
+
+    data = {
+     "qs" : query,
+      "display": {
+        "offset": index,
+        "show": 100
+    
+      }
+    }
+
+
+
+    url = "https://api.elsevier.com/content/search/sciencedirect"
+    r = requests.put(url, headers=headers, data=json.dumps(data))
 
 
     js = r.json()
     #print(r.url)
     try:
-        total_count = int(js['search-results']['opensearch:totalResults'])
-        entries = js['search-results']['entry']
+        total_count = int(js['resultsFound'])
+        entries = js['results']
     except:
         print(js['service-error'])
         
@@ -205,70 +227,73 @@ def _search_sd(key, query, view, index=0):
 # Json into Pandas parsen
 def json_to_pd (entry):
     try:
-        DOI = entry['prism:doi']
+        DOI = entry['doi']
     except:
         DOI = None
     
     try:
-        Titel = entry['dc:title']
+        Titel = entry['title']
     except:
         Titel = None
         
     
     try:
-        Author = entry['dc:creator']
+        Author = str(entry['authors'])
+        Author = Author.split(": '") [1]
+        Author = Author.split("'") [0]
+       # Author = Author_list['@name']
         
     except:
         Author = None
         
     
     try:
-        Publisher = entry['prism:publicationName']
+        Publisher = entry['sourceTitle']
     except:
         Publisher = None
         
     
     try:
-        Date = entry['prism:coverDate']
+        Date = entry['publicationDate']
     except:
         Date = None
       
     try:
-        link_list = entry['link']
-        for link in link_list:
-            if link['@ref'] == 'scidir':
-                    Link = link['@href']
+        Link = entry['uri']
     except:
         Link = None                   
                        
     Abstract = None
     
-    return pd.Series({'DOI': DOI, 'Title': Titel, 'Author': Author, 'Date': Date, 'Publisher': Publisher, 'Abstract': '-',  'Link': Link})
+    return pd.Series({'DOI': DOI, 'Title': Titel, 'Author': Author, 'Date': Date, 'Publisher': Publisher, 'Abstract': '-',  'Link': Link, 'Database': "Science Direct"})
 
 # Aufrufbare Funktion
-def scrape_sd( key, query, count, view='STANDARD'):
+def scrape_sd( key, insttoken, query, count):
         if type(count) is not int:
             raise ValueError("%s is not a valid input for the number of entries to return." %number)
 
-        result_df, total_count = _search_sd(key, query, view=view)
+        result_df, total_count = _search_sd(key, insttoken, query)
 
         if total_count <= count:
             count = total_count
 
-        if count <= 25:
+        if count <= 100:
             # if less than 25, just one page of response is enough
             return result_df[:count]
 
         # if larger than, go to next few pages until enough
         i = 1
         while True:
-            index = 25*i
-            result_df = result_df.append(_search_sd(key, query, view=view, index=index),
+            index = 100*i
+            result_df = result_df.append(_search_sd(key, insttoken, query,  index=index),
                                          ignore_index=True)
             if result_df.shape[0] >= count:
                 result_df.index += 1
                 return result_df[:count+1]
             i += 1
+
+
+
 
 
 
@@ -450,6 +475,7 @@ def scrape_wos (query_wos, count):
         df_WOS = pd.DataFrame(records)   
         df_WOS.insert(0, 'DOI', '')
         df_WOS['DOI'] = np.nan
+        df_WOS['Database'] = "Web of Science"
         df_WOS = df_WOS.head(count)
         df_WOS.index += 1
         
@@ -620,6 +646,7 @@ def scrape_acm (query_acm,  count):
         print('--------------------')
         df_ACM = pd.DataFrame(records)    
         df_ACM = df_ACM.head(count)
+        df_ACM['Database'] = "ACM Digital"
         df_ACM.index += 1
         
         return df_ACM
@@ -801,12 +828,175 @@ def scrape_ieee (query_ieee, count):
         df_ieee = pd.DataFrame(records)    
         df_ieee.insert(0, 'DOI', '')
         df_ieee['DOI'] = np.nan
+        df_ieee['Database'] = "IEEE"
         df_ieee = df_ieee.head(count)
         df_ieee.index += 1
         
         return df_ieee
 
 
+    
+################################################## Emerald ###################################################### 
+
+    
+    
+    
+    
+def scrape_emerald (query_emerald, count):
+        locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
+        
+       
+
+        driver = webdriver.Chrome(ChromeDriverManager().install())
+
+        # URL aufrufen
+        driver.get('https://www.emerald.com/insight/')
+        time.sleep(5)
+
+        search = driver.find_element_by_id("terms")
+
+       
+        search.send_keys(query_emerald)   
+        
+        time.sleep(3)
+        search.send_keys(Keys.RETURN)
+        time.sleep(8)
+        
+
+        Anzahl = driver.find_element_by_class_name("intent_searchresultscount").text
+        Anzahl = Anzahl.split("of ")[1]
+        Anzahl = int(Anzahl)
+        print("Emerald Insight - Anzahl Suchergebnisse: ", Anzahl)
+        
+        driver.find_element_by_link_text("50").click()
+        time.sleep(6)
+        
+          
+        records = []  # Liste für Ergebnisse initialisieren
+        if count < Anzahl:
+            y = int(count/50)
+            print("Emerald Insight - Ausgabe an Suchergebnissen: ", count)
+        else:
+            #Schleife über Seiten einbauen 
+            y = int(Anzahl/50)
+            print("Emerald Insight - Ausgabe an Suchergebnissen: ", Anzahl)
+        
+        print('Emerald Insight - Seiten zu durchsuchen: ', y+1) 
+        
+            
+        
+        
+        
+        for i in range(y+1):
+            time.sleep(5)
+            #Nach unten srollen, da sonst nur der erste Data-Container automatisch geladen wird
+
+            t = 500
+            for timer in range(0,15):
+                 driver.execute_script("window.scrollTo(0, "+str(t)+")")
+                 t += 1500  
+                 time.sleep(1)
+            
+            
+            time.sleep(2)
+            page_source = driver.page_source
+            soup = BeautifulSoup(page_source, 'lxml')
+
+            
+
+            for item_2 in soup.select('div[class="intent_search_result container card-shadow is-animated Search-item__wrapper"]'):
+    
+                for item in item_2.select('div[class="d-lg-flex flex-row pb-3"]'):
+                    #print(item)
+                    try:
+                        Title =  item.select('h2')[0].get_text()
+                        #print(Title)
+                    except:
+                        Title= None
+
+                    try:
+                        Author = item.select('p')[0].get_text()
+                        Author = Author.split(",")[0]
+                        Author = Author.split("and")[0]
+                        #print(Author)
+                    except:
+                        Author = None
+
+                    try:
+                        Date = item.select('div[class="pr-2 small"]')[0].get_text()
+                        Date = Date.split("Publication date: ")[1]
+                        #Date = Date.split(" ")[2]
+                        #print(Date)
+                    except:
+                        Date = None
+
+                try:
+                    Abstract = item_2.select('div[class="intent_abstract pb-1 col-md-7 pt-2 pl-2 pr-4"]')[0].get_text()
+                    #print(Abstract)
+                except:
+                    Abstract = None
+
+                try:
+                    Link = item_2.select('div[class="mb-1"]')[2].get_text()
+                    Link = Link.split("DOI: ")[1]
+                    #print(Link)
+
+                except:
+                    Link = None
+
+                try:
+                    Publisher = item_2.select('div[class="mb-1"]')[0].get_text()
+                    #Publisher = Publisher.split(",")[0]
+                    #print(Publisher)
+
+                except:
+                    Publisher = None
+
+                try:
+                    DOI = Link.split("https://doi.org/")[1]
+                    #print(DOI)
+                except:
+                    DOI = None
+
+                cit = None
+
+                #print("---")
+
+                records.append({  #Liste mit Ergebnissen erweitern
+                                "DOI" : DOI,
+                                "Title" : Title,
+                                "Author" : Author,
+                                "Cited_by": cit,
+                                "Date" : Date,
+                                "Publisher" : Publisher,
+                                "Abstract" : Abstract,
+                                "Link" : Link
+                                
+
+                                })
+
+                
+            
+            #Entweder nächste Seite aufrufen oder Browser beenden
+            try:
+                driver.find_element_by_class_name("intent_next_page_link").click()
+            except:    
+                driver.quit()
+                
+        driver.quit()
+        print('--------------------') 
+        df_emerald = pd.DataFrame(records)    
+        
+        df_emerald['Database'] = "Emerald Insight"
+        df_emerald = df_emerald.head(count)
+        df_emerald.index += 1
+        
+        return df_emerald
+    
+    
+    
+    
+    
         
 
     
@@ -1047,10 +1237,16 @@ def complete_scrape(query, scopus_key, sd_key, count):
     except:
         print('Keine Suchergebnisse bei IEEE!')
         df_ieee = pd.DataFrame()
+        
+    try:
+        df_emerald = scrape_emerald(query, count)
+    except:
+        print('Keine Suchergebnisse bei Emerald Insight')
+        df_emerald = pd.DataFrame()
     
     
     
-    frames = [df_Scopus, df_ScienceDirect, df_Arxiv, df_wos, df_acm, df_ieee]
+    frames = [df_Scopus, df_ScienceDirect, df_Arxiv, df_wos, df_acm, df_ieee, df_emerald]
 
     result = pd.concat(frames, ignore_index=True)
     pre = len(result)
