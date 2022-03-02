@@ -1159,7 +1159,7 @@ def scrape_scholar(query_scholar, Start, count):
 
 ################################################## API-Scrape ###################################################### 
 
-def api_scrape(query, scopus_key, sd_key, count):
+def api_scrape(query, scopus_key, sd_key, insttoken, count):
     #count = 5000
     try:
         df_Scopus = scrape_scopus(scopus_key, query, count)
@@ -1168,7 +1168,7 @@ def api_scrape(query, scopus_key, sd_key, count):
         df_Scopus = pd.DataFrame()
     
     try:
-        df_ScienceDirect = scrape_sd(sd_key, query, count)
+        df_ScienceDirect = scrape_sd(sd_key, insttoken, query, count)
     except:
         print('Keine Suchergebnisse bei Science Direct!')
         df_ScienceDirect = pd.DataFrame()
@@ -1200,7 +1200,7 @@ def api_scrape(query, scopus_key, sd_key, count):
 
 ################################################## complete-Scrape ###################################################### 
 
-def complete_scrape(query, scopus_key, sd_key, count):
+def complete_scrape(query, scopus_key, sd_key, insttoken, count):
     #count = 5000
     try:
         df_Scopus = scrape_scopus(scopus_key, query, count)
@@ -1209,7 +1209,7 @@ def complete_scrape(query, scopus_key, sd_key, count):
         df_Scopus = pd.DataFrame()
     
     try:
-        df_ScienceDirect = scrape_sd(sd_key, query, count)
+        df_ScienceDirect = scrape_sd(sd_key, insttoken, query, count)
     except:
         print('Keine Suchergebnisse bei Science Direct!')
         df_ScienceDirect = pd.DataFrame()
