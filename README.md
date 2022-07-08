@@ -1,5 +1,9 @@
 # Read first
 
+This is a useful tool, if you would like to quickly and fully automated download relevant meta-data for a given search string from various scientific databases. These databases include: Arxiv, Scopus, Sciencedirect, ACM digital, IEEE explore, Emerald Insights & Web of Science. 
+You will need to create a personal api key for scopus, sciencedirect and arxiv.
+
+
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5574867.svg)](https://doi.org/10.5281/zenodo.5574867)
 
 If you use this software please cite as followed:
